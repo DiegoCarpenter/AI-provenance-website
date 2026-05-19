@@ -597,317 +597,6 @@ function LiveFeed() {
   );
 }
 
-function VerifyPortal() {
-  const [input, setInput] = useState("");
-  const [checking, setChecking] = useState(false);
-  const [result, setResult] = useState(null);
-  const [verifyError, setVerifyError] = useState("");
-
-  async function handleVerify() {
-    if (!input.trim()) return;
-    setChecking(true);
-    setResult(null);
-    setVerifyError("");
-    try {
-      const encoded = new TextEncoder().encode(input);
-      const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hash =
-        "0x" + hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-      const provider = new ethers.JsonRpcProvider(
-        `https://eth-sepolia.g.alchemy.com/v2/${import.meta.env.VITE_ALCHEMY_KEY}`,
-      );
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
-      const [submitter, timestamp, label, exists] = await contract.verify(hash);
-      if (!exists) {
-        setResult({ found: false, hash });
-      } else {
-        const date = new Date(Number(timestamp) * 1000);
-        setResult({
-          found: true,
-          hash,
-          submitter,
-          label,
-          timestamp: date.toUTCString(),
-          etherscanUrl: `https://sepolia.etherscan.io/address/${submitter}`,
-        });
-      }
-    } catch (err) {
-      setVerifyError(err.message || "Verification failed.");
-    } finally {
-      setChecking(false);
-    }
-  }
-
-  return (
-    <div
-      style={{ width: "100%", padding: "0 2.5rem 5rem", background: C.surface }}
-    >
-      <div style={{ maxWidth: "900px", margin: "0 auto" }}>
-        <div
-          style={{
-            fontFamily: C.mono,
-            fontSize: "0.7rem",
-            color: C.muted,
-            letterSpacing: "0.15em",
-            textAlign: "center",
-            padding: "4rem 0 1.5rem",
-          }}
-        >
-          — VERIFY CONTENT —
-        </div>
-        <div
-          style={{
-            fontFamily: C.display,
-            fontSize: "1.8rem",
-            color: C.text,
-            textAlign: "center",
-            marginBottom: "0.5rem",
-          }}
-        >
-          Was this content notarized?
-        </div>
-        <div
-          style={{
-            fontFamily: "sans-serif",
-            fontSize: "0.9rem",
-            color: C.muted,
-            textAlign: "center",
-            marginBottom: "2rem",
-            lineHeight: 1.6,
-          }}
-        >
-          Paste any text below. No wallet needed — verification is free and
-          public.
-        </div>
-        <div
-          style={{
-            background: C.bg,
-            border: `1px solid ${C.border}`,
-            borderRadius: "16px",
-            padding: "1.5rem",
-            marginBottom: "1rem",
-          }}
-        >
-          <div
-            style={{
-              fontFamily: C.mono,
-              fontSize: "0.7rem",
-              color: C.goldDim,
-              letterSpacing: "0.1em",
-              marginBottom: "0.75rem",
-            }}
-          >
-            PASTE CONTENT TO VERIFY
-          </div>
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Paste the AI-generated text you want to verify..."
-            rows={5}
-            style={{
-              width: "100%",
-              background: "rgba(0,0,0,0.3)",
-              border: `1px solid ${C.border}`,
-              borderRadius: "8px",
-              padding: "0.85rem",
-              color: C.text,
-              fontFamily: C.mono,
-              fontSize: "0.85rem",
-              resize: "vertical",
-              outline: "none",
-              lineHeight: 1.6,
-              boxSizing: "border-box",
-            }}
-          />
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginTop: "1rem",
-              flexWrap: "wrap",
-              gap: "0.75rem",
-            }}
-          >
-            <span
-              style={{ fontFamily: C.mono, fontSize: "0.7rem", color: C.muted }}
-            >
-              Free · No wallet required · Reads from Sepolia
-            </span>
-            <button
-              onClick={handleVerify}
-              disabled={checking || !input.trim()}
-              style={{
-                fontFamily: C.mono,
-                fontSize: "0.8rem",
-                letterSpacing: "0.1em",
-                padding: "0.7rem 1.5rem",
-                background: "transparent",
-                color: checking ? C.muted : C.text,
-                border: `1px solid ${checking ? C.border : "rgba(237,232,220,0.3)"}`,
-                borderRadius: "8px",
-                cursor: checking || !input.trim() ? "not-allowed" : "pointer",
-              }}
-            >
-              {checking ? "CHECKING..." : "VERIFY ↗"}
-            </button>
-          </div>
-        </div>
-
-        {verifyError && (
-          <div
-            style={{
-              marginBottom: "1rem",
-              padding: "1rem 1.25rem",
-              background: "rgba(239,68,68,0.08)",
-              border: "1px solid rgba(239,68,68,0.3)",
-              borderRadius: "12px",
-              fontFamily: C.mono,
-              fontSize: "0.8rem",
-              color: "#EF4444",
-            }}
-          >
-            ⚠ {verifyError}
-          </div>
-        )}
-
-        {result && !result.found && (
-          <div
-            style={{
-              background: C.bg,
-              border: `1px solid ${C.border}`,
-              borderRadius: "16px",
-              padding: "1.5rem",
-            }}
-          >
-            <div
-              style={{
-                fontFamily: C.mono,
-                fontSize: "0.8rem",
-                color: C.muted,
-                marginBottom: "0.75rem",
-                letterSpacing: "0.1em",
-              }}
-            >
-              ✗ NO RECORD FOUND
-            </div>
-            <div
-              style={{
-                fontFamily: "sans-serif",
-                fontSize: "0.9rem",
-                color: C.muted,
-                lineHeight: 1.6,
-                marginBottom: "1rem",
-              }}
-            >
-              This content has not been notarized on DIEGO. Either it was never
-              submitted, or the text does not match exactly what was originally
-              notarized.
-            </div>
-            <div
-              style={{
-                fontFamily: C.mono,
-                fontSize: "0.7rem",
-                color: C.muted,
-                letterSpacing: "0.08em",
-              }}
-            >
-              HASH CHECKED →{" "}
-              <span style={{ color: C.goldDim, wordBreak: "break-all" }}>
-                {result.hash}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {result && result.found && (
-          <div
-            style={{
-              background: "rgba(29,158,117,0.06)",
-              border: "1px solid rgba(29,158,117,0.3)",
-              borderRadius: "16px",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                padding: "0.75rem 1.25rem",
-                borderBottom: "1px solid rgba(29,158,117,0.2)",
-                fontFamily: C.mono,
-                fontSize: "0.7rem",
-                color: "#1D9E75",
-                letterSpacing: "0.1em",
-              }}
-            >
-              ✓ VERIFIED ON ETHEREUM
-            </div>
-            <div
-              style={{
-                padding: "1.25rem",
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.85rem",
-              }}
-            >
-              {[
-                { label: "CONTENT HASH", value: result.hash },
-                { label: "SUBMITTED BY", value: result.submitter },
-                { label: "TIMESTAMP", value: result.timestamp },
-                { label: "LABEL", value: result.label || "(none)" },
-              ].map((row) => (
-                <div key={row.label}>
-                  <div
-                    style={{
-                      fontFamily: C.mono,
-                      fontSize: "0.65rem",
-                      color: C.muted,
-                      marginBottom: "0.2rem",
-                      letterSpacing: "0.1em",
-                    }}
-                  >
-                    {row.label}
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: C.mono,
-                      fontSize: "0.82rem",
-                      color: C.text,
-                      wordBreak: "break-all",
-                    }}
-                  >
-                    {row.value}
-                  </div>
-                </div>
-              ))}
-              <a
-                href={result.etherscanUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: "inline-block",
-                  marginTop: "0.25rem",
-                  fontFamily: C.mono,
-                  fontSize: "0.75rem",
-                  letterSpacing: "0.1em",
-                  padding: "0.65rem 1.25rem",
-                  borderRadius: "8px",
-                  background: "rgba(29,158,117,0.12)",
-                  border: "1px solid rgba(29,158,117,0.3)",
-                  color: "#1D9E75",
-                  textDecoration: "none",
-                }}
-              >
-                VIEW SUBMITTER ON ETHERSCAN ↗
-              </a>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function TryIt({ isConnected }) {
   const [prompt, setPrompt] = useState("");
   const [output, setOutput] = useState("");
@@ -1301,8 +990,577 @@ function TryIt({ isConnected }) {
   );
 }
 
+function Dashboard({ address, isConnected }) {
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  async function loadHistory() {
+    if (!address) return;
+    setLoading(true);
+    try {
+      const provider = new ethers.JsonRpcProvider(
+        `https://eth-sepolia.g.alchemy.com/v2/${import.meta.env.VITE_ALCHEMY_KEY}`,
+      );
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+      const currentBlock = await provider.getBlockNumber();
+
+      // Query in chunks of 9 blocks (Alchemy free tier limit)
+      const chunkSize = 9;
+      const totalBlocks = 500; // look back 500 blocks
+      const fromBlock = Math.max(0, currentBlock - totalBlocks);
+
+      let allEvents = [];
+      for (let start = fromBlock; start < currentBlock; start += chunkSize) {
+        const end = Math.min(start + chunkSize - 1, currentBlock);
+        const filter = contract.filters.ContentNotarized(null, address);
+        try {
+          const chunk = await contract.queryFilter(filter, start, end);
+          allEvents = [...allEvents, ...chunk];
+        } catch (e) {
+          // skip failed chunks
+        }
+      }
+
+      const items = await Promise.all(
+        allEvents.map(async (e) => {
+          const block = await provider.getBlock(e.blockNumber);
+          return {
+            hash: e.args[0],
+            label: e.args[3],
+            timestamp: new Date(block.timestamp * 1000).toUTCString(),
+            txHash: e.transactionHash,
+            blockNumber: e.blockNumber,
+          };
+        }),
+      );
+      setHistory(items.reverse());
+      setLoaded(true);
+    } catch (err) {
+      console.error("Dashboard error:", err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!isConnected || !address) return;
+    loadHistory();
+  }, [address, isConnected]);
+
+  if (!isConnected) return null;
+
+  return (
+    <div
+      style={{ width: "100%", padding: "0 2.5rem 5rem", background: C.surface }}
+    >
+      <div style={{ maxWidth: "900px", margin: "0 auto" }}>
+        <div
+          style={{
+            fontFamily: C.mono,
+            fontSize: "0.7rem",
+            color: C.muted,
+            letterSpacing: "0.15em",
+            textAlign: "center",
+            padding: "4rem 0 1.5rem",
+          }}
+        >
+          — YOUR HISTORY —
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "1rem",
+            marginBottom: "0.5rem",
+          }}
+        >
+          <div
+            style={{ fontFamily: C.display, fontSize: "1.8rem", color: C.text }}
+          >
+            Your notarized content
+          </div>
+          <button
+            onClick={loadHistory}
+            style={{
+              fontFamily: C.mono,
+              fontSize: "0.7rem",
+              letterSpacing: "0.1em",
+              padding: "0.4rem 0.85rem",
+              borderRadius: "8px",
+              cursor: "pointer",
+              background: "transparent",
+              color: C.muted,
+              border: `1px solid ${C.border}`,
+            }}
+          >
+            REFRESH ↺
+          </button>
+        </div>
+        <div
+          style={{
+            fontFamily: "sans-serif",
+            fontSize: "0.9rem",
+            color: C.muted,
+            textAlign: "center",
+            marginBottom: "2rem",
+            lineHeight: 1.6,
+          }}
+        >
+          Every piece of content you have stamped on Ethereum — pulled live from
+          the blockchain.
+        </div>
+
+        {loading && (
+          <div
+            style={{
+              textAlign: "center",
+              fontFamily: C.mono,
+              fontSize: "0.8rem",
+              color: C.muted,
+              padding: "2rem",
+            }}
+          >
+            LOADING FROM BLOCKCHAIN...
+          </div>
+        )}
+
+        {loaded && history.length === 0 && (
+          <div
+            style={{
+              background: C.bg,
+              border: `1px solid ${C.border}`,
+              borderRadius: "16px",
+              padding: "2rem",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{ fontFamily: C.mono, fontSize: "0.8rem", color: C.muted }}
+            >
+              No records found for this wallet yet. Notarize something above to
+              get started.
+            </div>
+          </div>
+        )}
+
+        {history.length > 0 && (
+          <div
+            style={{
+              background: C.bg,
+              border: `1px solid ${C.border}`,
+              borderRadius: "16px",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 90px 1fr 110px",
+                padding: "0.65rem 1.25rem",
+                borderBottom: `1px solid ${C.border}`,
+                background: "rgba(240,192,64,0.04)",
+              }}
+            >
+              {["CONTENT HASH", "LABEL", "TIMESTAMP", "TX"].map((h) => (
+                <div
+                  key={h}
+                  style={{
+                    fontFamily: C.mono,
+                    fontSize: "0.65rem",
+                    color: C.muted,
+                    letterSpacing: "0.1em",
+                  }}
+                >
+                  {h}
+                </div>
+              ))}
+            </div>
+            {history.map((item, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 90px 1fr 110px",
+                  padding: "0.85rem 1.25rem",
+                  alignItems: "center",
+                  borderBottom:
+                    i < history.length - 1 ? `1px solid ${C.border}` : "none",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "rgba(240,192,64,0.03)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }
+              >
+                <div
+                  style={{
+                    fontFamily: C.mono,
+                    fontSize: "0.75rem",
+                    color: C.text,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    paddingRight: "1rem",
+                  }}
+                >
+                  {item.hash.slice(0, 18)}...{item.hash.slice(-6)}
+                </div>
+                <div
+                  style={{
+                    fontFamily: C.mono,
+                    fontSize: "0.7rem",
+                    color: C.goldDim,
+                  }}
+                >
+                  {item.label || "—"}
+                </div>
+                <div
+                  style={{
+                    fontFamily: C.mono,
+                    fontSize: "0.72rem",
+                    color: C.muted,
+                  }}
+                >
+                  {item.timestamp}
+                </div>
+                <a
+                  href={`https://sepolia.etherscan.io/tx/${item.txHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontFamily: C.mono,
+                    fontSize: "0.7rem",
+                    color: "#1D9E75",
+                    textDecoration: "none",
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  #{item.blockNumber} ↗
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function VerifyPortal() {
+  const [input, setInput] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState(null);
+  const [verifyError, setVerifyError] = useState("");
+
+  async function handleVerify() {
+    if (!input.trim()) return;
+    setChecking(true);
+    setResult(null);
+    setVerifyError("");
+    try {
+      const encoded = new TextEncoder().encode(input);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hash =
+        "0x" + hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+      const provider = new ethers.JsonRpcProvider(
+        `https://eth-sepolia.g.alchemy.com/v2/${import.meta.env.VITE_ALCHEMY_KEY}`,
+      );
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+      const [submitter, timestamp, label, exists] = await contract.verify(hash);
+      if (!exists) {
+        setResult({ found: false, hash });
+      } else {
+        const date = new Date(Number(timestamp) * 1000);
+        setResult({
+          found: true,
+          hash,
+          submitter,
+          label,
+          timestamp: date.toUTCString(),
+          etherscanUrl: `https://sepolia.etherscan.io/address/${submitter}`,
+        });
+      }
+    } catch (err) {
+      setVerifyError(err.message || "Verification failed.");
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <div style={{ width: "100%", padding: "0 2.5rem 5rem", background: C.bg }}>
+      <div style={{ maxWidth: "900px", margin: "0 auto" }}>
+        <div
+          style={{
+            fontFamily: C.mono,
+            fontSize: "0.7rem",
+            color: C.muted,
+            letterSpacing: "0.15em",
+            textAlign: "center",
+            padding: "4rem 0 1.5rem",
+          }}
+        >
+          — VERIFY CONTENT —
+        </div>
+        <div
+          style={{
+            fontFamily: C.display,
+            fontSize: "1.8rem",
+            color: C.text,
+            textAlign: "center",
+            marginBottom: "0.5rem",
+          }}
+        >
+          Was this content notarized?
+        </div>
+        <div
+          style={{
+            fontFamily: "sans-serif",
+            fontSize: "0.9rem",
+            color: C.muted,
+            textAlign: "center",
+            marginBottom: "2rem",
+            lineHeight: 1.6,
+          }}
+        >
+          Paste any text below. No wallet needed — verification is free and
+          public.
+        </div>
+        <div
+          style={{
+            background: C.surface,
+            border: `1px solid ${C.border}`,
+            borderRadius: "16px",
+            padding: "1.5rem",
+            marginBottom: "1rem",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: C.mono,
+              fontSize: "0.7rem",
+              color: C.goldDim,
+              letterSpacing: "0.1em",
+              marginBottom: "0.75rem",
+            }}
+          >
+            PASTE CONTENT TO VERIFY
+          </div>
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Paste the AI-generated text you want to verify..."
+            rows={5}
+            style={{
+              width: "100%",
+              background: "rgba(0,0,0,0.3)",
+              border: `1px solid ${C.border}`,
+              borderRadius: "8px",
+              padding: "0.85rem",
+              color: C.text,
+              fontFamily: C.mono,
+              fontSize: "0.85rem",
+              resize: "vertical",
+              outline: "none",
+              lineHeight: 1.6,
+              boxSizing: "border-box",
+            }}
+          />
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginTop: "1rem",
+              flexWrap: "wrap",
+              gap: "0.75rem",
+            }}
+          >
+            <span
+              style={{ fontFamily: C.mono, fontSize: "0.7rem", color: C.muted }}
+            >
+              Free · No wallet required · Reads from Sepolia
+            </span>
+            <button
+              onClick={handleVerify}
+              disabled={checking || !input.trim()}
+              style={{
+                fontFamily: C.mono,
+                fontSize: "0.8rem",
+                letterSpacing: "0.1em",
+                padding: "0.7rem 1.5rem",
+                background: "transparent",
+                color: checking ? C.muted : C.text,
+                border: `1px solid ${checking ? C.border : "rgba(237,232,220,0.3)"}`,
+                borderRadius: "8px",
+                cursor: checking || !input.trim() ? "not-allowed" : "pointer",
+              }}
+            >
+              {checking ? "CHECKING..." : "VERIFY ↗"}
+            </button>
+          </div>
+        </div>
+
+        {verifyError && (
+          <div
+            style={{
+              marginBottom: "1rem",
+              padding: "1rem 1.25rem",
+              background: "rgba(239,68,68,0.08)",
+              border: "1px solid rgba(239,68,68,0.3)",
+              borderRadius: "12px",
+              fontFamily: C.mono,
+              fontSize: "0.8rem",
+              color: "#EF4444",
+            }}
+          >
+            ⚠ {verifyError}
+          </div>
+        )}
+
+        {result && !result.found && (
+          <div
+            style={{
+              background: C.surface,
+              border: `1px solid ${C.border}`,
+              borderRadius: "16px",
+              padding: "1.5rem",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: C.mono,
+                fontSize: "0.8rem",
+                color: C.muted,
+                marginBottom: "0.75rem",
+                letterSpacing: "0.1em",
+              }}
+            >
+              ✗ NO RECORD FOUND
+            </div>
+            <div
+              style={{
+                fontFamily: "sans-serif",
+                fontSize: "0.9rem",
+                color: C.muted,
+                lineHeight: 1.6,
+                marginBottom: "1rem",
+              }}
+            >
+              This content has not been notarized on DIEGO. Either it was never
+              submitted, or the text does not match exactly what was originally
+              notarized.
+            </div>
+            <div
+              style={{
+                fontFamily: C.mono,
+                fontSize: "0.7rem",
+                color: C.muted,
+                letterSpacing: "0.08em",
+              }}
+            >
+              HASH CHECKED →{" "}
+              <span style={{ color: C.goldDim, wordBreak: "break-all" }}>
+                {result.hash}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {result && result.found && (
+          <div
+            style={{
+              background: "rgba(29,158,117,0.06)",
+              border: "1px solid rgba(29,158,117,0.3)",
+              borderRadius: "16px",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                padding: "0.75rem 1.25rem",
+                borderBottom: "1px solid rgba(29,158,117,0.2)",
+                fontFamily: C.mono,
+                fontSize: "0.7rem",
+                color: "#1D9E75",
+                letterSpacing: "0.1em",
+              }}
+            >
+              ✓ VERIFIED ON ETHEREUM
+            </div>
+            <div
+              style={{
+                padding: "1.25rem",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.85rem",
+              }}
+            >
+              {[
+                { label: "CONTENT HASH", value: result.hash },
+                { label: "SUBMITTED BY", value: result.submitter },
+                { label: "TIMESTAMP", value: result.timestamp },
+                { label: "LABEL", value: result.label || "(none)" },
+              ].map((row) => (
+                <div key={row.label}>
+                  <div
+                    style={{
+                      fontFamily: C.mono,
+                      fontSize: "0.65rem",
+                      color: C.muted,
+                      marginBottom: "0.2rem",
+                      letterSpacing: "0.1em",
+                    }}
+                  >
+                    {row.label}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: C.mono,
+                      fontSize: "0.82rem",
+                      color: C.text,
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    {row.value}
+                  </div>
+                </div>
+              ))}
+              <a
+                href={result.etherscanUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "inline-block",
+                  marginTop: "0.25rem",
+                  fontFamily: C.mono,
+                  fontSize: "0.75rem",
+                  letterSpacing: "0.1em",
+                  padding: "0.65rem 1.25rem",
+                  borderRadius: "8px",
+                  background: "rgba(29,158,117,0.12)",
+                  border: "1px solid rgba(29,158,117,0.3)",
+                  color: "#1D9E75",
+                  textDecoration: "none",
+                }}
+              >
+                VIEW SUBMITTER ON ETHERSCAN ↗
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
-  const { isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
 
   return (
     <div
@@ -1451,6 +1709,7 @@ export default function App() {
       <HowItWorks />
       <LiveFeed />
       <TryIt isConnected={isConnected} />
+      <Dashboard address={address} isConnected={isConnected} />
       <VerifyPortal />
 
       <div
