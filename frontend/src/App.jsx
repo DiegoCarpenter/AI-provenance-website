@@ -35,16 +35,22 @@ const FAKE_HASH =
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
 const ABI = CONTRACT_ABI.abi;
 
-const FEED_ITEMS = [
-  { addr: "0x5b99...cc08", label: "ANALYSIS", time: "just now" },
-  { addr: "0xbc97...e55e", label: "ANALYSIS", time: "4s ago" },
-  { addr: "0xa2e1...4c01", label: "REPORT", time: "12s ago" },
-  { addr: "0x3568...c5dd", label: "ANALYSIS", time: "31s ago" },
-  { addr: "0x46b6...3bbb", label: "CODE", time: "1m ago" },
-  { addr: "0xda95...0167", label: "ESSAY", time: "2m ago" },
-  { addr: "0x75b0...79a0", label: "IMAGE PROMPT", time: "4m ago" },
-  { addr: "0x5ce8...a780", label: "IMAGE PROMPT", time: "14m ago" },
+const FLOW_STEPS = [
+  { key: "generating", label: "Generating" },
+  { key: "hashing", label: "Hashing" },
+  { key: "metamask", label: "MetaMask" },
+  { key: "confirming", label: "Confirming" },
+  { key: "done", label: "Done" },
 ];
+
+const FLOW_PHASE_MAP = {
+  generating: { activeIdx: 0, completedUpTo: -1 },
+  generated: { activeIdx: -1, completedUpTo: 0 },
+  hashing: { activeIdx: 1, completedUpTo: 0 },
+  metamask: { activeIdx: 2, completedUpTo: 1 },
+  confirming: { activeIdx: 3, completedUpTo: 2 },
+  done: { activeIdx: -1, completedUpTo: 4 },
+};
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -117,6 +123,171 @@ function IconShield({ color = C.goldDim }) {
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
       <path d="m9 12 2 2 4-4" />
     </svg>
+  );
+}
+
+// ─── Spinner + ProgressIndicator ─────────────────────────────────────────────
+
+function Spinner({ size = 14, color = C.muted }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      style={{
+        animation: "spin 0.7s linear infinite",
+        display: "inline-block",
+        flexShrink: 0,
+        verticalAlign: "middle",
+      }}
+    >
+      <circle cx="12" cy="12" r="9" stroke={color} opacity="0.2" />
+      <path d="M12 3 A9 9 0 0 1 21 12" stroke={color} />
+    </svg>
+  );
+}
+
+function ProgressIndicator({ flowStep }) {
+  if (!flowStep) return null;
+  const { activeIdx, completedUpTo } = FLOW_PHASE_MAP[flowStep] ?? {
+    activeIdx: -1,
+    completedUpTo: -1,
+  };
+  const furthest = Math.max(activeIdx, completedUpTo);
+  const fraction = furthest < 0 ? 0 : furthest / (FLOW_STEPS.length - 1);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      transition={{ duration: 0.3 }}
+      style={{
+        padding: "1.1rem 1.5rem 1rem",
+        background: "rgba(0,0,0,0.18)",
+        border: `1px solid ${C.border}`,
+        borderRadius: "10px",
+        marginBottom: "0.85rem",
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          display: "flex",
+          justifyContent: "space-between",
+        }}
+      >
+        {/* Track */}
+        <div
+          style={{
+            position: "absolute",
+            top: 11,
+            left: 11,
+            right: 11,
+            height: 1,
+            background: C.border,
+            zIndex: 0,
+          }}
+        />
+        {/* Progress fill */}
+        <div
+          style={{
+            position: "absolute",
+            top: 11,
+            left: 11,
+            height: 1,
+            background: "rgba(240,192,64,0.45)",
+            zIndex: 1,
+            width: `calc(${fraction * 100}% - ${fraction * 22}px)`,
+            transition: "width 0.5s cubic-bezier(0.16,1,0.3,1)",
+          }}
+        />
+        {FLOW_STEPS.map((step, i) => {
+          const isActive = i === activeIdx;
+          const isDone = i <= completedUpTo;
+          return (
+            <div
+              key={step.key}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.45rem",
+                zIndex: 2,
+                minWidth: 22,
+              }}
+            >
+              <div
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  border: `1.5px solid ${isDone || isActive ? C.gold : C.border}`,
+                  background: isDone
+                    ? "rgba(240,192,64,0.16)"
+                    : isActive
+                      ? "rgba(240,192,64,0.07)"
+                      : C.bg,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "border-color 0.35s, background 0.35s",
+                }}
+              >
+                {isDone ? (
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path
+                      d="M2 5L4 7.5L8 3"
+                      stroke={C.gold}
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : isActive ? (
+                  <motion.div
+                    animate={{ opacity: [1, 0.2, 1] }}
+                    transition={{ repeat: Infinity, duration: 1.1 }}
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: C.gold,
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: "50%",
+                      background: C.border,
+                    }}
+                  />
+                )}
+              </div>
+              <span
+                style={{
+                  fontFamily: C.mono,
+                  fontSize: "0.54rem",
+                  letterSpacing: "0.06em",
+                  color: isActive ? C.gold : isDone ? C.goldDim : C.muted,
+                  textAlign: "center",
+                  whiteSpace: "nowrap",
+                  lineHeight: 1.3,
+                  transition: "color 0.35s",
+                }}
+              >
+                {step.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
   );
 }
 
@@ -415,19 +586,56 @@ function HashTicker() {
   const [displayed, setDisplayed] = useState("");
   const idx = useRef(0);
   const dir = useRef(1);
+  const hashRef = useRef(FAKE_HASH);
+
+  useEffect(() => {
+    async function fetchLatestHash() {
+      try {
+        const provider = new ethers.JsonRpcProvider(
+          `https://eth-sepolia.g.alchemy.com/v2/${import.meta.env.VITE_ALCHEMY_KEY}`,
+        );
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+        const currentBlock = await provider.getBlockNumber();
+        const fromBlock = Math.max(0, currentBlock - 500);
+        const chunkSize = 9;
+        let allEvents = [];
+        for (let start = fromBlock; start < currentBlock; start += chunkSize) {
+          const end = Math.min(start + chunkSize - 1, currentBlock);
+          try {
+            const chunk = await contract.queryFilter(
+              contract.filters.ContentNotarized(),
+              start,
+              end,
+            );
+            allEvents = [...allEvents, ...chunk];
+          } catch {
+            // skip failed chunk
+          }
+        }
+        if (allEvents.length > 0) {
+          allEvents.sort((a, b) => b.blockNumber - a.blockNumber);
+          hashRef.current = allEvents[0].args[0];
+        }
+      } catch (err) {
+        console.error("HashTicker fetch error:", err.message);
+      }
+    }
+    fetchLatestHash();
+  }, []);
 
   useEffect(() => {
     const tick = setInterval(() => {
+      const h = hashRef.current;
       if (dir.current === 1) {
-        idx.current = Math.min(idx.current + 1, FAKE_HASH.length);
-        setDisplayed(FAKE_HASH.slice(0, idx.current));
-        if (idx.current === FAKE_HASH.length)
+        idx.current = Math.min(idx.current + 1, h.length);
+        setDisplayed(h.slice(0, idx.current));
+        if (idx.current === h.length)
           setTimeout(() => {
             dir.current = -1;
           }, 2000);
       } else {
         idx.current = Math.max(idx.current - 1, 0);
-        setDisplayed(FAKE_HASH.slice(0, idx.current));
+        setDisplayed(h.slice(0, idx.current));
         if (idx.current === 0)
           setTimeout(() => {
             dir.current = 1;
@@ -581,9 +789,18 @@ function Nav() {
         DIEGO
       </span>
       <div style={{ display: "flex", gap: "2.5rem", alignItems: "center" }}>
-        {["GENERATE", "VERIFY", "EXPLORE"].map((l) => (
+        {[
+          { label: "GENERATE", id: "generate" },
+          { label: "VERIFY", id: "verify" },
+          { label: "EXPLORE", id: "explore" },
+        ].map(({ label, id }) => (
           <span
-            key={l}
+            key={id}
+            onClick={() =>
+              document
+                .getElementById(id)
+                ?.scrollIntoView({ behavior: "smooth" })
+            }
             style={{
               fontFamily: C.mono,
               fontSize: "0.7rem",
@@ -595,7 +812,7 @@ function Nav() {
             onMouseEnter={(e) => (e.target.style.color = C.text)}
             onMouseLeave={(e) => (e.target.style.color = C.muted)}
           >
-            {l}
+            {label}
           </span>
         ))}
         <ConnectButton.Custom>
@@ -914,30 +1131,105 @@ function HowItWorks() {
 // ─── LiveFeed ─────────────────────────────────────────────────────────────────
 
 function LiveFeed() {
-  const [items, setItems] = useState(FEED_ITEMS);
-  const [keys, setKeys] = useState(() => FEED_ITEMS.map((_, i) => i));
-  const nextKey = useRef(FEED_ITEMS.length);
+  const [items, setItems] = useState([]);
+  const [keys, setKeys] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const nextKey = useRef(0);
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  const knownTxHashes = useRef(new Set());
+  const mountedRef = useRef(true);
+  const initialLoadDone = useRef(false);
+
+  function formatAge(ts) {
+    const s = now - ts;
+    if (s < 10) return "just now";
+    if (s < 60) return `${s}s ago`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    return `${Math.floor(m / 60)}h ago`;
+  }
+
+  const loadEvents = useCallback(async () => {
+    try {
+      const provider = new ethers.JsonRpcProvider(
+        `https://eth-sepolia.g.alchemy.com/v2/${import.meta.env.VITE_ALCHEMY_KEY}`,
+      );
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+      const currentBlock = await provider.getBlockNumber();
+      const fromBlock = Math.max(0, currentBlock - 500);
+      const chunkSize = 9;
+      let allEvents = [];
+      for (let start = fromBlock; start < currentBlock; start += chunkSize) {
+        const end = Math.min(start + chunkSize - 1, currentBlock);
+        try {
+          const chunk = await contract.queryFilter(
+            contract.filters.ContentNotarized(),
+            start,
+            end,
+          );
+          allEvents = [...allEvents, ...chunk];
+        } catch {
+          // skip failed chunk
+        }
+      }
+      allEvents.sort((a, b) => b.blockNumber - a.blockNumber);
+      const top = allEvents.slice(0, 8);
+      const fetched = await Promise.all(
+        top.map(async (ev) => {
+          const block = await provider.getBlock(ev.blockNumber);
+          return {
+            txHash: ev.transactionHash,
+            addr: `${ev.args[1].slice(0, 6)}...${ev.args[1].slice(-4)}`,
+            label: (ev.args[3] || "other").toUpperCase(),
+            timestamp: Number(block.timestamp),
+          };
+        }),
+      );
+      if (!mountedRef.current) return;
+      if (!initialLoadDone.current) {
+        fetched.forEach((item) => knownTxHashes.current.add(item.txHash));
+        setItems(fetched);
+        setKeys(fetched.map(() => nextKey.current++));
+        setLoading(false);
+        initialLoadDone.current = true;
+      } else {
+        const newItems = fetched.filter(
+          (item) => !knownTxHashes.current.has(item.txHash),
+        );
+        if (newItems.length > 0) {
+          newItems.forEach((item) => knownTxHashes.current.add(item.txHash));
+          const newKeys = newItems.map(() => nextKey.current++);
+          setItems((prev) => [...newItems, ...prev].slice(0, 8));
+          setKeys((prev) => [...newKeys, ...prev].slice(0, 8));
+        }
+      }
+    } catch (err) {
+      console.error("LiveFeed error:", err.message);
+      if (mountedRef.current) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const labels = ["ESSAY", "CODE", "ANALYSIS", "REPORT", "IMAGE PROMPT"];
-    const t = setInterval(() => {
-      const newItem = {
-        addr:
-          "0x" +
-          Math.random().toString(16).slice(2, 6) +
-          "..." +
-          Math.random().toString(16).slice(2, 6),
-        label: labels[Math.floor(Math.random() * labels.length)],
-        time: "just now",
-      };
-      setItems((prev) => [newItem, ...prev.slice(0, 7)]);
-      setKeys((prev) => [nextKey.current++, ...prev.slice(0, 7)]);
-    }, 5000);
+    mountedRef.current = true;
+    const initialTimer = setTimeout(loadEvents, 0);
+    const pollTimer = setInterval(loadEvents, 30000);
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(initialTimer);
+      clearInterval(pollTimer);
+    };
+  }, [loadEvents]);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 15000);
     return () => clearInterval(t);
   }, []);
 
   return (
-    <div style={{ width: "100%", padding: "0 2.5rem 5rem", background: C.bg }}>
+    <div
+      id="explore"
+      style={{ width: "100%", padding: "0 2.5rem 5rem", background: C.bg }}
+    >
       <div style={{ maxWidth: "920px", margin: "0 auto" }}>
         <SectionLabel paddingTop="0">LIVE ACTIVITY</SectionLabel>
         <motion.div
@@ -979,16 +1271,49 @@ function LiveFeed() {
                 letterSpacing: "0.12em",
               }}
             >
-              BLOCKCHAIN EVENTS{" "}
-              <span style={{ color: C.goldDim, opacity: 0.45 }}>(demo)</span>
+              BLOCKCHAIN EVENTS
             </span>
           </div>
+
+          {loading && (
+            <div
+              style={{
+                textAlign: "center",
+                fontFamily: C.mono,
+                fontSize: "0.72rem",
+                color: C.muted,
+                padding: "2rem",
+              }}
+            >
+              <motion.span
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ repeat: Infinity, duration: 1.6 }}
+              >
+                LOADING FROM BLOCKCHAIN...
+              </motion.span>
+            </div>
+          )}
+
+          {!loading && items.length === 0 && (
+            <div
+              style={{
+                textAlign: "center",
+                fontFamily: C.mono,
+                fontSize: "0.72rem",
+                color: C.muted,
+                padding: "2rem",
+              }}
+            >
+              No recent events found.
+            </div>
+          )}
+
           <AnimatePresence initial={false}>
             {items.map((item, i) => (
               <motion.div
                 key={keys[i]}
                 layout
-                initial={{ opacity: 0, y: -12 }}
+                initial={{ opacity: 0, y: -20 }}
                 animate={{
                   opacity: i === 0 ? 1 : Math.max(0.28, 0.75 - i * 0.06),
                   y: 0,
@@ -1056,7 +1381,7 @@ function LiveFeed() {
                       color: C.muted,
                     }}
                   >
-                    {item.time}
+                    {formatAge(item.timestamp)}
                   </span>
                 </div>
               </motion.div>
@@ -1073,10 +1398,10 @@ function LiveFeed() {
 function TryIt({ isConnected }) {
   const [prompt, setPrompt] = useState("");
   const [output, setOutput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [label, setLabel] = useState("essay");
-  const [notarizing, setNotarizing] = useState(false);
+  const [flowStep, setFlowStep] = useState(null);
   const [receipt, setReceipt] = useState(null);
   const [notarizeError, setNotarizeError] = useState("");
 
@@ -1093,7 +1418,8 @@ function TryIt({ isConnected }) {
 
   async function handleGenerate() {
     if (!prompt.trim()) return;
-    setLoading(true);
+    setGenerating(true);
+    setFlowStep("generating");
     setError("");
     setOutput("");
     setReceipt(null);
@@ -1107,25 +1433,30 @@ function TryIt({ isConnected }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Something went wrong");
       setOutput(data.text);
+      setFlowStep("generated");
     } catch (err) {
       setError(err.message);
+      setFlowStep(null);
     } finally {
-      setLoading(false);
+      setGenerating(false);
     }
   }
 
   async function handleNotarize() {
     if (!output || !walletClient) return;
-    setNotarizing(true);
+    setFlowStep("hashing");
     setNotarizeError("");
     setReceipt(null);
     try {
       const hash = await hashText(output);
+      setFlowStep("metamask");
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
       const tx = await contract.notarize(hash, label);
+      setFlowStep("confirming");
       const txReceipt = await tx.wait();
+      setFlowStep("done");
       setReceipt({
         hash,
         txHash: txReceipt.hash,
@@ -1140,13 +1471,30 @@ function TryIt({ isConnected }) {
       } else {
         setNotarizeError(err.message || "Transaction failed.");
       }
-    } finally {
-      setNotarizing(false);
+      setFlowStep("generated");
     }
   }
 
+  const notarizeStep =
+    flowStep && flowStep !== "generating" && flowStep !== "generated"
+      ? flowStep
+      : null;
+  const notarizing = !!notarizeStep && notarizeStep !== "done";
+
+  const notarizeBtnLabel =
+    {
+      hashing: "HASHING...",
+      metamask: "WAITING FOR METAMASK...",
+      confirming: "CONFIRMING ON-CHAIN...",
+      done: "NOTARIZED ✓",
+    }[notarizeStep] ??
+    (isConnected ? "NOTARIZE ON ETHEREUM ↗" : "CONNECT WALLET TO NOTARIZE");
+
   return (
-    <div style={{ width: "100%", padding: "0 2.5rem 5rem", background: C.bg }}>
+    <div
+      id="generate"
+      style={{ width: "100%", padding: "0 2.5rem 5rem", background: C.bg }}
+    >
       <div style={{ maxWidth: "920px", margin: "0 auto" }}>
         <SectionLabel>TRY IT NOW</SectionLabel>
         <SectionHeading sub="Generate AI content and anchor it permanently on Ethereum.">
@@ -1188,15 +1536,30 @@ function TryIt({ isConnected }) {
               </span>
               <GhostBtn
                 onClick={handleGenerate}
-                disabled={loading || !prompt.trim()}
+                disabled={generating || !prompt.trim()}
               >
-                {loading ? "GENERATING..." : "GENERATE ↗"}
+                <span
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.45rem",
+                  }}
+                >
+                  {generating && <Spinner size={13} />}
+                  {generating ? "GENERATING..." : "GENERATE ↗"}
+                </span>
               </GhostBtn>
             </div>
           </Panel>
 
           <AnimatePresence>
             {error && <ErrorBanner key="err" message={error} />}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {flowStep && (
+              <ProgressIndicator key="progress" flowStep={flowStep} />
+            )}
           </AnimatePresence>
 
           <AnimatePresence>
@@ -1288,14 +1651,21 @@ function TryIt({ isConnected }) {
                   >
                     <PrimaryBtn
                       onClick={handleNotarize}
-                      disabled={!isConnected || notarizing}
+                      disabled={
+                        !isConnected || notarizing || flowStep === "done"
+                      }
                       loading={notarizing}
                     >
-                      {notarizing
-                        ? "WAITING FOR METAMASK..."
-                        : isConnected
-                          ? "NOTARIZE ON ETHEREUM ↗"
-                          : "CONNECT WALLET TO NOTARIZE"}
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                        }}
+                      >
+                        {notarizing && <Spinner size={13} color={C.muted} />}
+                        {notarizeBtnLabel}
+                      </span>
                     </PrimaryBtn>
                     <AnimatePresence>
                       {notarizeError && (
@@ -1710,7 +2080,10 @@ function VerifyPortal() {
   }
 
   return (
-    <div style={{ width: "100%", padding: "0 2.5rem 5rem", background: C.bg }}>
+    <div
+      id="verify"
+      style={{ width: "100%", padding: "0 2.5rem 5rem", background: C.bg }}
+    >
       <div style={{ maxWidth: "920px", margin: "0 auto" }}>
         <SectionLabel>VERIFY CONTENT</SectionLabel>
         <SectionHeading sub="Paste any text below. No wallet needed — verification is free and public.">
@@ -2039,6 +2412,61 @@ export default function App() {
       <TryIt isConnected={isConnected} />
       <Dashboard address={address} isConnected={isConnected} />
       <VerifyPortal />
+
+      <div
+        style={{
+          textAlign: "center",
+          padding: "1rem 2rem",
+          borderTop: `1px solid ${C.border}`,
+          background: C.surface,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "0.75rem",
+          flexWrap: "wrap",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: C.mono,
+            fontSize: "0.62rem",
+            color: C.muted,
+            letterSpacing: "0.1em",
+          }}
+        >
+          CONTRACT
+        </span>
+        <span
+          style={{
+            fontFamily: C.mono,
+            fontSize: "0.62rem",
+            color: C.gold,
+            letterSpacing: "0.04em",
+          }}
+        >
+          {CONTRACT_ADDRESS}
+        </span>
+        <a
+          href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            fontFamily: C.mono,
+            fontSize: "0.62rem",
+            color: "#1D9E75",
+            letterSpacing: "0.08em",
+            textDecoration: "none",
+            padding: "0.2rem 0.55rem",
+            border: "1px solid rgba(29,158,117,0.28)",
+            borderRadius: "5px",
+            transition: "opacity 0.2s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.65")}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+        >
+          Verified Contract ↗
+        </a>
+      </div>
 
       <div
         style={{
